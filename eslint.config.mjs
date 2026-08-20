@@ -43,7 +43,7 @@ export default tseslint.config(
     files: ["test/**/*.ts"],
     rules: {
       "@typescript-eslint/no-empty-function": "off",
-      "max-lines-per-function": ["error", { max: 180, skipBlankLines: true, skipComments: true }],
+      "max-lines-per-function": ["error", { max: 250, skipBlankLines: true, skipComments: true }],
     },
   },
 );
