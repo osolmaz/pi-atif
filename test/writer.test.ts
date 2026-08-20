@@ -1,4 +1,14 @@
-import { access, chmod, mkdtemp, readdir, readFile, rename, stat } from "node:fs/promises";
+import {
+  access,
+  chmod,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rename,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -26,7 +36,7 @@ describe("atomic writer", () => {
     expect(await readFile(path, "utf8")).toBe("two\n");
   });
 
-  it("commits all-leaf output as a complete directory and recovers a backup", async () => {
+  it("commits all-leaf output as a complete directory and recovers a verified backup", async () => {
     const root = await mkdtemp(join(tmpdir(), "pi-atif-writer-"));
     const path = join(root, "trajectories");
     const files = new Map([
@@ -35,10 +45,25 @@ describe("atomic writer", () => {
     ]);
     await writeAtomicDirectory(path, files);
     expect(await readdir(path)).toEqual(["a.json", "b.json"]);
-    await rename(path, `${path}.pi-atif-backup`);
+
+    const id = "12345678-1234-1234-1234-123456789abc";
+    const backup = join(root, `.trajectories.pi-atif-${id}.backup`);
+    const stage = join(root, `.trajectories.pi-atif-${id}.tmp`);
+    await rename(path, backup);
+    await writeFile(
+      `${path}.pi-atif-transaction.json`,
+      `${JSON.stringify({
+        schema: "pi-atif-directory-transaction-v1",
+        id,
+        destination: path,
+        backup,
+        stage,
+      })}\n`,
+    );
     const result = await writeAtomicDirectory(path, files);
     expect(result.every((item) => item.idempotent)).toBe(true);
     expect(await readdir(path)).toEqual(["a.json", "b.json"]);
+    await expect(access(backup)).rejects.toBeDefined();
   });
 
   it("refuses and then replaces a conflicting all-leaf directory", async () => {
@@ -52,15 +77,88 @@ describe("atomic writer", () => {
     expect(await readdir(path)).toEqual(["b.json"]);
   });
 
-  it("removes a stale package backup after a completed replacement", async () => {
+  it("does not delete an unverified backup-like directory", async () => {
     const root = await mkdtemp(join(tmpdir(), "pi-atif-writer-"));
     const path = join(root, "trajectories");
-    const backup = `${path}.pi-atif-backup`;
+    const unrelated = `${path}.pi-atif-backup`;
     await writeAtomicDirectory(path, new Map([["a.json", "a\n"]]));
-    await writeAtomicDirectory(backup, new Map([["old.json", "old\n"]]));
+    await writeAtomicDirectory(unrelated, new Map([["old.json", "old\n"]]));
+    const result = await writeAtomicDirectory(path, new Map([["a.json", "a\n"]]));
+    expect(result.every((item) => item.idempotent)).toBe(true);
+    expect(await readdir(unrelated)).toEqual(["old.json"]);
+  });
+
+  it("finishes a verified transaction that already committed the destination", async () => {
+    const root = await mkdtemp(join(tmpdir(), "pi-atif-writer-"));
+    const path = join(root, "trajectories");
+    const id = "abcdefab-1234-1234-1234-abcdefabcdef";
+    const backup = join(root, `.trajectories.pi-atif-${id}.backup`);
+    const stage = join(root, `.trajectories.pi-atif-${id}.tmp`);
+    await writeAtomicDirectory(path, new Map([["a.json", "a\n"]]));
+    await mkdir(backup);
+    await writeFile(join(backup, "old.json"), "old\n");
+    await mkdir(stage);
+    await writeFile(join(stage, "staged.json"), "staged\n");
+    await writeFile(
+      `${path}.pi-atif-transaction.json`,
+      `${JSON.stringify({
+        schema: "pi-atif-directory-transaction-v1",
+        id,
+        destination: path,
+        backup,
+        stage,
+      })}\n`,
+    );
     const result = await writeAtomicDirectory(path, new Map([["a.json", "a\n"]]));
     expect(result.every((item) => item.idempotent)).toBe(true);
     await expect(access(backup)).rejects.toBeDefined();
+    await expect(access(stage)).rejects.toBeDefined();
+    await expect(access(`${path}.pi-atif-transaction.json`)).rejects.toBeDefined();
+  });
+
+  it("discards an uncommitted verified stage when no prior destination existed", async () => {
+    const root = await mkdtemp(join(tmpdir(), "pi-atif-writer-"));
+    const path = join(root, "trajectories");
+    const id = "fedcbafe-1234-1234-1234-fedcbafedcba";
+    const backup = join(root, `.trajectories.pi-atif-${id}.backup`);
+    const stage = join(root, `.trajectories.pi-atif-${id}.tmp`);
+    await mkdir(stage);
+    await writeFile(join(stage, "partial.json"), "partial\n");
+    await writeFile(
+      `${path}.pi-atif-transaction.json`,
+      `${JSON.stringify({
+        schema: "pi-atif-directory-transaction-v1",
+        id,
+        destination: path,
+        backup,
+        stage,
+      })}\n`,
+    );
+    await writeAtomicDirectory(path, new Map([["a.json", "a\n"]]));
+    expect(await readdir(path)).toEqual(["a.json"]);
+    await expect(access(stage)).rejects.toBeDefined();
+  });
+
+  it("refuses an unverified transaction marker", async () => {
+    const root = await mkdtemp(join(tmpdir(), "pi-atif-writer-"));
+    const path = join(root, "trajectories");
+    await writeFile(`${path}.pi-atif-transaction.json`, "user data\n");
+    await expect(writeAtomicDirectory(path, new Map([["a.json", "a\n"]]))).rejects.toBeInstanceOf(
+      OutputConflictError,
+    );
+    expect(await readFile(`${path}.pi-atif-transaction.json`, "utf8")).toBe("user data\n");
+  });
+
+  it("refuses a JSON transaction marker that does not identify this export", async () => {
+    const root = await mkdtemp(join(tmpdir(), "pi-atif-writer-"));
+    const path = join(root, "trajectories");
+    await writeFile(
+      `${path}.pi-atif-transaction.json`,
+      `${JSON.stringify({ schema: "other", id: "not-owned" })}\n`,
+    );
+    await expect(writeAtomicDirectory(path, new Map([["a.json", "a\n"]]))).rejects.toBeInstanceOf(
+      OutputConflictError,
+    );
   });
 
   it("does not commit an export that was already interrupted", async () => {
