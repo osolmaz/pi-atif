@@ -18,6 +18,13 @@ export class SessionSourceError extends Error {
   }
 }
 
+export function safeSessionId(id: string): string {
+  if (!/^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/.test(id)) {
+    throw new SessionSourceError(`Unsafe Pi session ID: ${id}`, "invalid-session");
+  }
+  return id;
+}
+
 export interface SnapshotOptions {
   livePromptMetadata?: readonly LivePromptMetadata[];
   liveMetadataComplete?: boolean;
@@ -60,6 +67,7 @@ export function snapshotSession(
     throw new SessionSourceError("Pi did not provide a session header", "invalid-session");
   }
 
+  const sessionId = safeSessionId(manager.getSessionId());
   const leafIds = collectLeafIds(manager);
   if (leafIds.length === 0) {
     throw new SessionSourceError("The Pi session has no exportable entries", "empty-session");
@@ -93,7 +101,7 @@ export function snapshotSession(
 
   return {
     header,
-    sessionId: manager.getSessionId(),
+    sessionId,
     sessionFile: manager.getSessionFile(),
     sessionName: manager.getSessionName(),
     currentLeafId: manager.getLeafId(),
