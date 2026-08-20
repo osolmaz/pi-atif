@@ -15,6 +15,14 @@ export interface WriteResult {
   idempotent: boolean;
 }
 
+interface DirectoryTransaction {
+  schema: "pi-atif-directory-transaction-v1";
+  id: string;
+  destination: string;
+  backup: string;
+  stage: string;
+}
+
 function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted) throw new DOMException("Export was interrupted", "AbortError");
 }
@@ -102,16 +110,85 @@ async function directoryMatches(
   return true;
 }
 
-async function recoverDirectory(destination: string, backup: string): Promise<void> {
-  const destinationExists = await exists(destination);
-  const backupExists = await exists(backup);
-  if (!destinationExists && backupExists) {
-    await rename(backup, destination);
-    await syncDirectory(dirname(destination));
-  } else if (destinationExists && backupExists) {
-    await rm(backup, { recursive: true, force: true });
-    await syncDirectory(dirname(destination));
+function transactionPath(destination: string): string {
+  return `${destination}.pi-atif-transaction.json`;
+}
+
+// Every field and path must match before recovery can mutate a backup.
+// eslint-disable-next-line complexity
+function isDirectoryTransaction(
+  value: unknown,
+  destination: string,
+): value is DirectoryTransaction {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  if (
+    record.schema !== "pi-atif-directory-transaction-v1" ||
+    typeof record.id !== "string" ||
+    !/^[0-9a-f-]{36}$/.test(record.id) ||
+    record.destination !== destination ||
+    typeof record.backup !== "string" ||
+    typeof record.stage !== "string"
+  ) {
+    return false;
   }
+  const parent = dirname(destination);
+  const prefix = `.${basename(destination)}.pi-atif-${record.id}`;
+  return (
+    dirname(record.backup) === parent &&
+    dirname(record.stage) === parent &&
+    basename(record.backup) === `${prefix}.backup` &&
+    basename(record.stage) === `${prefix}.tmp`
+  );
+}
+
+async function loadDirectoryTransaction(
+  destination: string,
+): Promise<DirectoryTransaction | undefined> {
+  const path = transactionPath(destination);
+  if (!(await exists(path))) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(await readFile(path, "utf8"));
+    if (isDirectoryTransaction(parsed, destination)) return parsed;
+  } catch {
+    // The path is not a transaction owned by pi-atif.
+  }
+  throw new OutputConflictError(path);
+}
+
+async function recoverDirectory(destination: string): Promise<void> {
+  const transaction = await loadDirectoryTransaction(destination);
+  if (!transaction) return;
+  const destinationExists = await exists(destination);
+  const backupExists = await exists(transaction.backup);
+  if (!destinationExists && backupExists) {
+    await rename(transaction.backup, destination);
+  } else if (destinationExists && backupExists) {
+    await rm(transaction.backup, { recursive: true, force: true });
+  }
+  if (await exists(transaction.stage)) {
+    await rm(transaction.stage, { recursive: true, force: true });
+  }
+  await rm(transactionPath(destination), { force: true });
+  await syncDirectory(dirname(destination));
+}
+
+async function beginDirectoryTransaction(
+  destination: string,
+  stage: string,
+): Promise<DirectoryTransaction> {
+  const id = /\.pi-atif-([0-9a-f-]{36})\.tmp$/.exec(basename(stage))?.[1];
+  if (!id) throw new Error(`Invalid pi-atif staging path: ${stage}`);
+  const transaction: DirectoryTransaction = {
+    schema: "pi-atif-directory-transaction-v1",
+    id,
+    destination,
+    backup: join(dirname(destination), `.${basename(destination)}.pi-atif-${id}.backup`),
+    stage,
+  };
+  await writeFreshFile(transactionPath(destination), `${JSON.stringify(transaction)}\n`);
+  await syncDirectory(dirname(destination));
+  return transaction;
 }
 
 // The transaction keeps recovery, replacement, and cleanup in one ordered operation.
@@ -125,8 +202,7 @@ export async function writeAtomicDirectory(
   throwIfAborted(signal);
   const parent = dirname(destination);
   await ensureDirectory(parent);
-  const backup = `${destination}.pi-atif-backup`;
-  await recoverDirectory(destination, backup);
+  await recoverDirectory(destination);
 
   if (await directoryMatches(destination, files)) {
     return [...files].map(([name, content]) => ({
@@ -137,8 +213,10 @@ export async function writeAtomicDirectory(
   }
   if ((await exists(destination)) && !force) throw new OutputConflictError(destination);
 
-  const stage = join(parent, `.${basename(destination)}.pi-atif-${randomUUID()}.tmp`);
+  const id = randomUUID();
+  const stage = join(parent, `.${basename(destination)}.pi-atif-${id}.tmp`);
   let stageCommitted = false;
+  let transaction: DirectoryTransaction | undefined;
   await mkdir(stage, { mode: 0o700 });
   try {
     for (const [name, content] of [...files].sort(([left], [right]) => left.localeCompare(right))) {
@@ -147,18 +225,26 @@ export async function writeAtomicDirectory(
     await syncDirectory(stage);
     throwIfAborted(signal);
 
-    if (await exists(destination)) await rename(destination, backup);
+    if (await exists(destination)) {
+      transaction = await beginDirectoryTransaction(destination, stage);
+      await rename(destination, transaction.backup);
+    }
     try {
       await rename(stage, destination);
       stageCommitted = true;
       await syncDirectory(parent);
     } catch (error) {
-      if (!(await exists(destination)) && (await exists(backup))) await rename(backup, destination);
+      if (transaction && !(await exists(destination)) && (await exists(transaction.backup))) {
+        await rename(transaction.backup, destination);
+      }
       await syncDirectory(parent);
       throw error;
     }
-    if (await exists(backup)) {
-      await rm(backup, { recursive: true, force: true });
+    if (transaction) {
+      if (await exists(transaction.backup)) {
+        await rm(transaction.backup, { recursive: true, force: true });
+      }
+      await rm(transactionPath(destination), { force: true });
       await syncDirectory(parent);
     }
     return [...files].map(([name, content]) => ({
@@ -168,5 +254,8 @@ export async function writeAtomicDirectory(
     }));
   } finally {
     if (!stageCommitted && (await exists(stage))) await rm(stage, { recursive: true, force: true });
+    if (transaction && (await exists(transactionPath(destination)))) {
+      await recoverDirectory(destination);
+    }
   }
 }
