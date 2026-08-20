@@ -1,0 +1,325 @@
+{
+  "agent": {
+    "extra": {
+      "pi_atif": {
+        "exporter": "pi-atif",
+        "exporter_version": "0.1.0",
+        "version_semantics": "export_runtime"
+      }
+    },
+    "model_name": "gpt-5.4",
+    "name": "pi",
+    "version": "0.84.2"
+  },
+  "extra": {
+    "pi_atif": {
+      "ancestry_entry_ids": [
+        "u1",
+        "m1",
+        "t1",
+        "a1",
+        "r1",
+        "a2",
+        "cp1",
+        "cm1",
+        "u2",
+        "a3",
+        "x1",
+        "s1",
+        "l1"
+      ],
+      "complete": false,
+      "labels": {
+        "u1": "start"
+      },
+      "normalized_session_version": 3,
+      "profile_id": "raw-v1",
+      "selected_leaf_id": "l1",
+      "session_name": "Fixture session",
+      "source_cwd": "/workspace/project",
+      "source_session_timestamp": "2026-01-01T00:00:00.000Z",
+      "warnings": [
+        {
+          "code": "historical-live-metadata-unavailable",
+          "message": "System prompts and active tool definitions are included only when observed by the live extension"
+        },
+        {
+          "code": "agent-origin-version-unavailable",
+          "message": "Pi sessions do not record the Pi version that originally created each entry; agent.version identifies the export runtime"
+        },
+        {
+          "code": "embedded-image-omitted",
+          "entryId": "u2",
+          "field": "message.content",
+          "message": "Pi stores image content as embedded image/png data, while ATIF requires a path"
+        },
+        {
+          "code": "unsupported-entry-omitted",
+          "entryId": "x1",
+          "message": "Extension state entry fixture-state is not dialogue"
+        }
+      ]
+    }
+  },
+  "final_metrics": {
+    "total_cached_tokens": 130,
+    "total_completion_tokens": 72,
+    "total_cost_usd": 0.013260000000000001,
+    "total_prompt_tokens": 690,
+    "total_steps": 9
+  },
+  "schema_version": "ATIF-v1.7",
+  "session_id": "session-branched",
+  "steps": [
+    {
+      "extra": {
+        "pi_atif": {
+          "entry_id": "u1"
+        }
+      },
+      "message": "Inspect the project",
+      "source": "user",
+      "step_id": 1,
+      "timestamp": "2026-01-01T00:00:01.000Z"
+    },
+    {
+      "extra": {
+        "pi_atif": {
+          "entry_id": "m1",
+          "kind": "model_change",
+          "model_id": "gpt-5.4",
+          "provider": "openai"
+        }
+      },
+      "message": "Model changed",
+      "source": "system",
+      "step_id": 2,
+      "timestamp": "2026-01-01T00:00:02.000Z"
+    },
+    {
+      "extra": {
+        "pi_atif": {
+          "entry_id": "t1",
+          "kind": "thinking_level_change",
+          "thinking_level": "high"
+        }
+      },
+      "message": "Thinking level changed",
+      "source": "system",
+      "step_id": 3,
+      "timestamp": "2026-01-01T00:00:03.000Z"
+    },
+    {
+      "extra": {
+        "pi_atif": {
+          "api": "openai-responses",
+          "entry_id": "a1",
+          "provider": "openai",
+          "stop_reason": "toolUse"
+        }
+      },
+      "llm_call_count": 1,
+      "message": "I will inspect the files.",
+      "metrics": {
+        "cached_tokens": 50,
+        "completion_tokens": 20,
+        "cost_usd": 0.0033,
+        "extra": {
+          "pi_atif": {
+            "cache_write_tokens": 10,
+            "cost_breakdown": {
+              "cacheRead": 0.0001,
+              "cacheWrite": 0.0002,
+              "input": 0.001,
+              "output": 0.002,
+              "total": 0.0033
+            },
+            "input_tokens_excluding_cache_hits": 100,
+            "reasoning_tokens": 5,
+            "total_tokens_reported_by_pi": 170
+          }
+        },
+        "prompt_tokens": 150
+      },
+      "model_name": "gpt-5.4",
+      "observation": {
+        "results": [
+          {
+            "content": [
+              {
+                "text": "# Project",
+                "type": "text"
+              }
+            ],
+            "extra": {
+              "pi_atif": {
+                "details": {
+                  "lines": 1
+                },
+                "entry_id": "r1",
+                "is_error": false,
+                "tool_name": "read"
+              }
+            },
+            "source_call_id": "call-1"
+          }
+        ]
+      },
+      "reasoning_content": "I should inspect the files.",
+      "reasoning_effort": "high",
+      "source": "agent",
+      "step_id": 4,
+      "timestamp": "2026-01-01T00:00:04.000Z",
+      "tool_calls": [
+        {
+          "arguments": {
+            "path": "README.md"
+          },
+          "function_name": "read",
+          "tool_call_id": "call-1"
+        }
+      ]
+    },
+    {
+      "extra": {
+        "pi_atif": {
+          "api": "openai-responses",
+          "entry_id": "a2",
+          "provider": "openai",
+          "stop_reason": "stop"
+        }
+      },
+      "llm_call_count": 1,
+      "message": "The project has a README.",
+      "metrics": {
+        "cached_tokens": 80,
+        "completion_tokens": 12,
+        "cost_usd": 0.00296,
+        "extra": {
+          "pi_atif": {
+            "cache_write_tokens": 0,
+            "cost_breakdown": {
+              "cacheRead": 0.00016,
+              "cacheWrite": 0,
+              "input": 0.0016,
+              "output": 0.0012,
+              "total": 0.00296
+            },
+            "input_tokens_excluding_cache_hits": 160,
+            "total_tokens_reported_by_pi": 252
+          }
+        },
+        "prompt_tokens": 240
+      },
+      "model_name": "gpt-5.4",
+      "reasoning_effort": "high",
+      "source": "agent",
+      "step_id": 5,
+      "timestamp": "2026-01-01T00:00:06.000Z"
+    },
+    {
+      "extra": {
+        "context_management": {
+          "boundary": "replace",
+          "type": "compaction"
+        },
+        "pi_atif": {
+          "details": {
+            "readFiles": [
+              "README.md"
+            ]
+          },
+          "entry_id": "cp1",
+          "first_kept_entry_id": "a1",
+          "from_hook": false,
+          "generation_metrics": {
+            "cached_tokens": 0,
+            "completion_tokens": 40,
+            "cost_usd": 0.007,
+            "extra": {
+              "pi_atif": {
+                "cache_write_tokens": 0,
+                "cost_breakdown": {
+                  "cacheRead": 0,
+                  "cacheWrite": 0,
+                  "input": 0.003,
+                  "output": 0.004,
+                  "total": 0.007
+                },
+                "input_tokens_excluding_cache_hits": 300,
+                "total_tokens_reported_by_pi": 340
+              }
+            },
+            "prompt_tokens": 300
+          },
+          "kind": "compaction",
+          "retained_tail_count": 1,
+          "tokens_before": 30000
+        }
+      },
+      "message": "Context compaction",
+      "observation": {
+        "results": [
+          {
+            "content": "The project README was inspected."
+          }
+        ]
+      },
+      "source": "system",
+      "step_id": 6,
+      "timestamp": "2026-01-01T00:00:07.000Z"
+    },
+    {
+      "extra": {
+        "pi_atif": {
+          "custom_type": "fixture-context",
+          "details": {
+            "fixture": true
+          },
+          "display": false,
+          "entry_id": "cm1",
+          "kind": "custom_message"
+        }
+      },
+      "message": "Use the compacted context.",
+      "source": "user",
+      "step_id": 7,
+      "timestamp": "2026-01-01T00:00:08.000Z"
+    },
+    {
+      "extra": {
+        "pi_atif": {
+          "entry_id": "u2"
+        }
+      },
+      "message": [
+        {
+          "text": "Describe the image",
+          "type": "text"
+        }
+      ],
+      "source": "user",
+      "step_id": 8,
+      "timestamp": "2026-01-01T00:00:09.000Z"
+    },
+    {
+      "extra": {
+        "pi_atif": {
+          "api": "openai-responses",
+          "entry_id": "a3",
+          "error_message": "Image input unavailable",
+          "provider": "openai",
+          "stop_reason": "error"
+        }
+      },
+      "llm_call_count": 1,
+      "message": "The embedded image cannot be inspected here.",
+      "model_name": "gpt-5.4",
+      "reasoning_effort": "high",
+      "source": "agent",
+      "step_id": 9,
+      "timestamp": "2026-01-01T00:00:10.000Z"
+    }
+  ],
+  "trajectory_id": "pi-atif-b5ca1083fe13d3fa298f2989f70543882412869d3ac2c58e1b924720dfe061c2"
+}

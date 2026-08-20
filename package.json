@@ -1,0 +1,93 @@
+{
+  "name": "pi-atif",
+  "version": "0.1.0",
+  "description": "Export Pi coding-agent sessions as Harbor ATIF trajectories",
+  "type": "module",
+  "license": "MIT",
+  "author": "Onur Solmaz",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/osolmaz/pi-atif.git"
+  },
+  "homepage": "https://github.com/osolmaz/pi-atif#readme",
+  "bugs": "https://github.com/osolmaz/pi-atif/issues",
+  "keywords": [
+    "pi-package",
+    "atif",
+    "harbor",
+    "trajectory"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "pi-atif": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./extension": {
+      "types": "./dist/extension.d.ts",
+      "import": "./dist/extension.js"
+    }
+  },
+  "files": [
+    "dist",
+    "docs",
+    "LICENSE",
+    "README.md"
+  ],
+  "pi": {
+    "extensions": [
+      "./dist/extension.js"
+    ]
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run coverage && npm run dry",
+    "dry": "slophammer-ts dry .",
+    "format": "biome check --write .",
+    "format:check": "biome check .",
+    "golden:update": "npm run build && node scripts/generate-goldens.mjs",
+    "lint": "eslint . --config eslint.config.mjs",
+    "mutate": "stryker run stryker.config.mjs",
+    "prepare": "npm run build",
+    "pretest": "npm run build",
+    "test": "vitest run",
+    "test:golden": "vitest run test/golden.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "validate:atif": "vitest run test/schema.test.ts",
+    "validate:harbor": "bash scripts/validate-harbor.sh",
+    "smoke:pi": "bash scripts/smoke-pi.sh",
+    "slophammer": "slophammer-ts check . --execute",
+    "coverage": "vitest run --coverage --config vitest.config.ts"
+  },
+  "dependencies": {
+    "zod": "4.4.3"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.9",
+    "@eslint/js": "10.0.1",
+    "@earendil-works/pi-coding-agent": "0.84.2",
+    "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/typescript-checker": "10.0.0",
+    "@stryker-mutator/vitest-runner": "10.0.0",
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "4.1.11",
+    "eslint": "10.8.1",
+    "slophammer-ts": "0.4.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.67.0",
+    "vitest": "4.1.11"
+  },
+  "overrides": {
+    "qs": "6.15.3"
+  }
+}
