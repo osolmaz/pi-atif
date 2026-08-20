@@ -1,0 +1,3 @@
+{"type":"session","version":2,"id":"session-v2","timestamp":"2025-06-01T00:00:00.000Z","cwd":"/workspace/v2"}
+{"type":"message","id":"v2-u1","parentId":null,"timestamp":"2025-06-01T00:00:01.000Z","message":{"role":"user","content":"Legacy extension message","timestamp":1748736001000}}
+{"type":"message","id":"v2-h1","parentId":"v2-u1","timestamp":"2025-06-01T00:00:02.000Z","message":{"role":"hookMessage","customType":"legacy-hook","content":"Legacy context","display":true,"details":{"version":2},"timestamp":1748736002000}}

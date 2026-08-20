@@ -1,0 +1,3 @@
+{"type":"session","id":"session-v1","timestamp":"2025-01-01T00:00:00.000Z","cwd":"/workspace/v1"}
+{"type":"message","timestamp":"2025-01-01T00:00:01.000Z","message":{"role":"user","content":"Legacy question","timestamp":1735689601000}}
+{"type":"message","timestamp":"2025-01-01T00:00:02.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Legacy answer"}],"api":"anthropic-messages","provider":"anthropic","model":"claude-test","usage":{"input":5,"output":3,"cacheRead":0,"cacheWrite":0,"totalTokens":8,"cost":{"input":0.00005,"output":0.00003,"cacheRead":0,"cacheWrite":0,"total":0.00008}},"stopReason":"stop","timestamp":1735689602000}}

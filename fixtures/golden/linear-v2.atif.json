@@ -1,0 +1,74 @@
+{
+  "agent": {
+    "extra": {
+      "pi_atif": {
+        "exporter": "pi-atif",
+        "exporter_version": "0.1.0",
+        "version_semantics": "export_runtime"
+      }
+    },
+    "name": "pi",
+    "version": "0.84.2"
+  },
+  "extra": {
+    "pi_atif": {
+      "ancestry_entry_ids": [
+        "v2-u1",
+        "v2-h1"
+      ],
+      "complete": false,
+      "labels": {},
+      "normalized_session_version": 3,
+      "profile_id": "raw-v1",
+      "selected_leaf_id": "v2-h1",
+      "source_cwd": "/workspace/v2",
+      "source_session_timestamp": "2025-06-01T00:00:00.000Z",
+      "warnings": [
+        {
+          "code": "historical-live-metadata-unavailable",
+          "message": "System prompts and active tool definitions are included only when observed by the live extension"
+        },
+        {
+          "code": "agent-origin-version-unavailable",
+          "message": "Pi sessions do not record the Pi version that originally created each entry; agent.version identifies the export runtime"
+        }
+      ]
+    }
+  },
+  "final_metrics": {
+    "total_steps": 2
+  },
+  "schema_version": "ATIF-v1.7",
+  "session_id": "session-v2",
+  "steps": [
+    {
+      "extra": {
+        "pi_atif": {
+          "entry_id": "v2-u1"
+        }
+      },
+      "message": "Legacy extension message",
+      "source": "user",
+      "step_id": 1,
+      "timestamp": "2025-06-01T00:00:01.000Z"
+    },
+    {
+      "extra": {
+        "pi_atif": {
+          "custom_type": "legacy-hook",
+          "details": {
+            "version": 2
+          },
+          "display": true,
+          "entry_id": "v2-h1",
+          "kind": "custom_message"
+        }
+      },
+      "message": "Legacy context",
+      "source": "user",
+      "step_id": 2,
+      "timestamp": "2025-06-01T00:00:02.000Z"
+    }
+  ],
+  "trajectory_id": "pi-atif-860ecfc2f25980e53d695abae365e59e1335d10d3c5288649207bb641996cc4b"
+}
