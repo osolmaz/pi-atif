@@ -1,4 +1,4 @@
-import { mkdtemp, readdir } from "node:fs/promises";
+import { mkdtemp, readdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -55,6 +55,49 @@ describe("Pi extension", () => {
     expect(await readdir(join(output, "atif"))).toHaveLength(1);
     expect(manager.getEntries()).toHaveLength(before);
     expect(notifications.at(-1)).toContain("Exported 1 ATIF trajectory");
+    await events.get("session_shutdown")?.({ reason: "quit" }, context);
+  });
+
+  it("keeps identical prompt captures on separate branches", async () => {
+    const manager = await openFixture("linear-v2.jsonl");
+    const commands = new Map<string, RegisteredCommand>();
+    const events = new Map<
+      string,
+      (event: unknown, context: ExtensionContext) => Promise<unknown>
+    >();
+    const api = {
+      registerCommand(name: string, command: RegisteredCommand) {
+        commands.set(name, command);
+      },
+      on(name: string, handler: (event: unknown, context: ExtensionContext) => Promise<unknown>) {
+        events.set(name, handler);
+      },
+      getActiveTools: () => [],
+      getAllTools: () => [],
+    } as unknown as ExtensionAPI;
+    piAtifExtension(api);
+    const context = {
+      cwd: manager.getCwd(),
+      hasUI: false,
+      sessionManager: manager,
+      ui: { notify() {} },
+    } as unknown as ExtensionContext;
+
+    const promptEvent = { systemPrompt: "Same prompt", prompt: "turn", images: [] };
+    await events.get("before_agent_start")?.(promptEvent, context);
+    manager.branch("v2-u1");
+    manager.appendMessage({ role: "user", content: "branch turn", timestamp: 3 });
+    await events.get("before_agent_start")?.(promptEvent, context);
+
+    const output = await mkdtemp(join(tmpdir(), "pi-atif-branches-"));
+    await commands
+      .get("atif")
+      ?.handler(`export --all-leaves --output ${join(output, "atif")}`, context);
+    const files = await readdir(join(output, "atif"));
+    expect(files).toHaveLength(2);
+    for (const file of files) {
+      expect(await readFile(join(output, "atif", file), "utf8")).toContain("Same prompt");
+    }
     await events.get("session_shutdown")?.({ reason: "quit" }, context);
   });
 

@@ -20,7 +20,12 @@ export type {
   JsonValue,
 } from "./schema.js";
 export { atifTrajectorySchema, validateAtifTrajectory } from "./schema.js";
-export { openHistoricalSession, SessionSourceError, snapshotSession } from "./session-source.js";
+export {
+  openHistoricalSession,
+  SessionSourceError,
+  safeSessionId,
+  snapshotSession,
+} from "./session-source.js";
 export type { LeafSelection, LivePromptMetadata, SessionSnapshot } from "./session-types.js";
 export { stableStringify } from "./stable-json.js";
 export { OutputConflictError, writeAtomicDirectory, writeAtomicFile } from "./writer.js";

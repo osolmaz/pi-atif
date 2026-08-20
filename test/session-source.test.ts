@@ -6,6 +6,7 @@ import {
   openHistoricalSession,
   type SessionReader,
   SessionSourceError,
+  safeSessionId,
   snapshotSession,
 } from "../src/session-source.js";
 import { openFixture } from "./helpers.js";
@@ -58,6 +59,11 @@ describe("snapshotSession", () => {
     await expect(
       openHistoricalSession("session-a", { cwd: "/workspace/v2", sessionDir: directory }),
     ).rejects.toMatchObject({ code: "ambiguous-session" });
+  });
+
+  it("rejects unsafe session IDs before they can become output paths", () => {
+    expect(() => safeSessionId("../../outside")).toThrow("Unsafe Pi session ID");
+    expect(safeSessionId("session.safe-1")).toBe("session.safe-1");
   });
 
   it("rejects empty sessions and missing headers", () => {

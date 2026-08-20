@@ -10,7 +10,7 @@ import { EXPORTER_VERSION, getPiRuntimeVersion } from "./version.js";
 interface LiveState {
   captures: LivePromptMetadata[];
   complete: boolean;
-  lastCaptureHash?: string;
+  captureHashes: Map<string, string>;
 }
 
 const liveBySession = new Map<string, LiveState>();
@@ -30,7 +30,7 @@ function stateFor(ctx: ExtensionContext): LiveState {
         (entry) =>
           entry.type === "message" && (entry.message as { role?: string }).role === "assistant",
       );
-    state = { captures: [], complete: !hasAssistant };
+    state = { captures: [], complete: !hasAssistant, captureHashes: new Map() };
     liveBySession.set(id, state);
   }
   return state;
@@ -158,13 +158,16 @@ export default function piAtifExtension(pi: ExtensionAPI): void {
     const digest = createHash("sha256")
       .update(JSON.stringify([event.systemPrompt, definitions]))
       .digest("hex");
-    if (digest === state.lastCaptureHash) return;
-    state.captures.push({
+    if (digest === state.captureHashes.get(leafId)) return;
+    const capture = {
       afterEntryId: leafId,
       systemPrompt: event.systemPrompt,
       toolDefinitions: definitions,
-    });
-    state.lastCaptureHash = digest;
+    };
+    const existing = state.captures.findIndex((item) => item.afterEntryId === leafId);
+    if (existing >= 0) state.captures[existing] = capture;
+    else state.captures.push(capture);
+    state.captureHashes.set(leafId, digest);
   });
 
   pi.on("agent_settled", async (_event, ctx) => {

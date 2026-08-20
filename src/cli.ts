@@ -5,7 +5,12 @@ import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { ArgumentError, parseExportArguments } from "./arguments.js";
 import { type ExportArtifact, exportSnapshot } from "./exporter.js";
 import { rawRedactionProfile } from "./redaction.js";
-import { openHistoricalSession, SessionSourceError, snapshotSession } from "./session-source.js";
+import {
+  openHistoricalSession,
+  SessionSourceError,
+  safeSessionId,
+  snapshotSession,
+} from "./session-source.js";
 import { EXPORTER_VERSION, getPiRuntimeVersion } from "./version.js";
 import { OutputConflictError } from "./writer.js";
 
@@ -113,7 +118,7 @@ async function run(): Promise<number> {
       result.artifacts.push(
         ...(await exportOne(
           session.path,
-          join(destination, session.id),
+          join(destination, safeSessionId(session.id)),
           options,
           agentVersion,
           abortController.signal,
