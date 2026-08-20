@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   access,
   chmod,
@@ -13,6 +14,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { OutputConflictError, writeAtomicDirectory, writeAtomicFile } from "../src/writer.js";
+
+function digest(content: string): string {
+  return createHash("sha256").update(content).digest("hex");
+}
 
 describe("atomic writer", () => {
   it("writes owner-only files and supports idempotent reruns", async () => {
@@ -58,6 +63,7 @@ describe("atomic writer", () => {
         destination: path,
         backup,
         stage,
+        files: { "a.json": digest("a\n"), "b.json": digest("b\n") },
       })}\n`,
     );
     const result = await writeAtomicDirectory(path, files);
@@ -107,6 +113,7 @@ describe("atomic writer", () => {
         destination: path,
         backup,
         stage,
+        files: { "a.json": digest("a\n") },
       })}\n`,
     );
     const result = await writeAtomicDirectory(path, new Map([["a.json", "a\n"]]));
@@ -132,6 +139,7 @@ describe("atomic writer", () => {
         destination: path,
         backup,
         stage,
+        files: { "a.json": digest("a\n") },
       })}\n`,
     );
     await writeAtomicDirectory(path, new Map([["a.json", "a\n"]]));
@@ -149,6 +157,37 @@ describe("atomic writer", () => {
     expect(await readFile(`${path}.pi-atif-transaction.json`, "utf8")).toBe("user data\n");
   });
 
+  it("preserves a verified backup when recovery finds an unknown destination", async () => {
+    const root = await mkdtemp(join(tmpdir(), "pi-atif-writer-"));
+    const path = join(root, "trajectories");
+    const id = "aaaaaaaa-1234-1234-1234-aaaaaaaaaaaa";
+    const backup = join(root, `.trajectories.pi-atif-${id}.backup`);
+    const stage = join(root, `.trajectories.pi-atif-${id}.tmp`);
+    await mkdir(backup);
+    await writeFile(join(backup, "old.json"), "old\n");
+    await mkdir(path);
+    await writeFile(join(path, "intruder.json"), "intruder\n");
+    await mkdir(stage);
+    await writeFile(join(stage, "a.json"), "a\n");
+    await writeFile(
+      `${path}.pi-atif-transaction.json`,
+      `${JSON.stringify({
+        schema: "pi-atif-directory-transaction-v1",
+        id,
+        destination: path,
+        backup,
+        stage,
+        files: { "a.json": digest("a\n") },
+      })}\n`,
+    );
+    await expect(writeAtomicDirectory(path, new Map([["a.json", "a\n"]]))).rejects.toBeInstanceOf(
+      OutputConflictError,
+    );
+    expect(await readFile(join(backup, "old.json"), "utf8")).toBe("old\n");
+    expect(await readFile(join(path, "intruder.json"), "utf8")).toBe("intruder\n");
+    await access(`${path}.pi-atif-transaction.json`);
+  });
+
   it("refuses a JSON transaction marker that does not identify this export", async () => {
     const root = await mkdtemp(join(tmpdir(), "pi-atif-writer-"));
     const path = join(root, "trajectories");
@@ -159,6 +198,16 @@ describe("atomic writer", () => {
     await expect(writeAtomicDirectory(path, new Map([["a.json", "a\n"]]))).rejects.toBeInstanceOf(
       OutputConflictError,
     );
+  });
+
+  it("rejects output names that escape the staged directory", async () => {
+    const root = await mkdtemp(join(tmpdir(), "pi-atif-writer-"));
+    const path = join(root, "trajectories");
+    const escaped = join(root, "escaped.json");
+    await expect(
+      writeAtomicDirectory(path, new Map([["../escaped.json", "escaped\n"]])),
+    ).rejects.toThrow("one basename");
+    await expect(access(escaped)).rejects.toBeDefined();
   });
 
   it("does not commit an export that was already interrupted", async () => {

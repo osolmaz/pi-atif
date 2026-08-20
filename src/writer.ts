@@ -21,6 +21,7 @@ interface DirectoryTransaction {
   destination: string;
   backup: string;
   stage: string;
+  files: Record<string, string>;
 }
 
 function throwIfAborted(signal?: AbortSignal): void {
@@ -95,6 +96,14 @@ export async function writeAtomicFile(
   }
 }
 
+function validateOutputNames(files: ReadonlyMap<string, string>): void {
+  for (const name of files.keys()) {
+    if (!name || name === "." || name === ".." || name !== basename(name) || /[\\/]/.test(name)) {
+      throw new Error(`ATIF output name must be one basename: ${name}`);
+    }
+  }
+}
+
 async function directoryMatches(
   destination: string,
   files: ReadonlyMap<string, string>,
@@ -106,6 +115,21 @@ async function directoryMatches(
     return false;
   for (const [name, content] of files) {
     if ((await readFile(join(destination, name), "utf8")) !== content) return false;
+  }
+  return true;
+}
+
+async function directoryMatchesHashes(
+  destination: string,
+  files: Readonly<Record<string, string>>,
+): Promise<boolean> {
+  if (!(await exists(destination))) return false;
+  const names = (await readdir(destination)).sort();
+  const expected = Object.keys(files).sort();
+  if (names.length !== expected.length || names.some((name, index) => name !== expected[index]))
+    return false;
+  for (const [name, digest] of Object.entries(files)) {
+    if (sha256(await readFile(join(destination, name), "utf8")) !== digest) return false;
   }
   return true;
 }
@@ -128,7 +152,18 @@ function isDirectoryTransaction(
     !/^[0-9a-f-]{36}$/.test(record.id) ||
     record.destination !== destination ||
     typeof record.backup !== "string" ||
-    typeof record.stage !== "string"
+    typeof record.stage !== "string" ||
+    !record.files ||
+    typeof record.files !== "object" ||
+    Array.isArray(record.files) ||
+    Object.entries(record.files).some(
+      ([name, digest]) =>
+        !name ||
+        name !== basename(name) ||
+        /[\\/]/.test(name) ||
+        typeof digest !== "string" ||
+        !/^[0-9a-f]{64}$/.test(digest),
+    )
   ) {
     return false;
   }
@@ -164,6 +199,9 @@ async function recoverDirectory(destination: string): Promise<void> {
   if (!destinationExists && backupExists) {
     await rename(transaction.backup, destination);
   } else if (destinationExists && backupExists) {
+    if (!(await directoryMatchesHashes(destination, transaction.files))) {
+      throw new OutputConflictError(destination);
+    }
     await rm(transaction.backup, { recursive: true, force: true });
   }
   if (await exists(transaction.stage)) {
@@ -176,6 +214,7 @@ async function recoverDirectory(destination: string): Promise<void> {
 async function beginDirectoryTransaction(
   destination: string,
   stage: string,
+  files: ReadonlyMap<string, string>,
 ): Promise<DirectoryTransaction> {
   const id = /\.pi-atif-([0-9a-f-]{36})\.tmp$/.exec(basename(stage))?.[1];
   if (!id) throw new Error(`Invalid pi-atif staging path: ${stage}`);
@@ -185,6 +224,7 @@ async function beginDirectoryTransaction(
     destination,
     backup: join(dirname(destination), `.${basename(destination)}.pi-atif-${id}.backup`),
     stage,
+    files: Object.fromEntries([...files].map(([name, content]) => [name, sha256(content)])),
   };
   await writeFreshFile(transactionPath(destination), `${JSON.stringify(transaction)}\n`);
   await syncDirectory(dirname(destination));
@@ -200,6 +240,7 @@ export async function writeAtomicDirectory(
   signal?: AbortSignal,
 ): Promise<WriteResult[]> {
   throwIfAborted(signal);
+  validateOutputNames(files);
   const parent = dirname(destination);
   await ensureDirectory(parent);
   await recoverDirectory(destination);
@@ -226,7 +267,7 @@ export async function writeAtomicDirectory(
     throwIfAborted(signal);
 
     if (await exists(destination)) {
-      transaction = await beginDirectoryTransaction(destination, stage);
+      transaction = await beginDirectoryTransaction(destination, stage, files);
       await rename(destination, transaction.backup);
     }
     try {
